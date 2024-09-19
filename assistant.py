@@ -71,17 +71,36 @@ async def entrypoint(ctx: JobContext):
         ]
     )
 
-    gpt = openai.beta.AssistantLLM(
+    gpt_assistant = openai.beta.AssistantLLM(
+        assistant_opts=openai.beta.AssistantOptions(
+            create_options=openai.beta.AssistantCreateOptions(
+                model="gpt-4o-mini",
+                instructions="Just talk with people",
+                name="test-mini"
+            )
+        ))
+    
+    gpt_assistant2 = openai.beta.AssistantLLM(
         assistant_opts=openai.beta.AssistantOptions(
             load_options=openai.beta.AssistantLoadOptions(
-                assistant_id="asst_QXQEcSVw9HI41HWEVk1HH9Pi",
+                assistant_id="asst_QXQEcSVw9HI41HWEVk1HH9Pi", # Антон
+                thread_id=None
+            )
+        ))
+    
+    gpt_assistant3 = openai.beta.AssistantLLM(
+        assistant_opts=openai.beta.AssistantOptions(
+            load_options=openai.beta.AssistantLoadOptions(
+                assistant_id="asst_HzJhdxldWwxzPdPdubsV7FZf", # 3.5
                 thread_id=None
             )
         ))
 
+    gpt = openai.LLM(model="gpt-4o")
+
     # Since OpenAI does not support streaming TTS, we'll use it with a StreamAdapter
     # to make it compatible with the VoiceAssistant
-    openai_tts = tts.StreamAdapter(
+    elevenlabs_tts = tts.StreamAdapter(
         tts=elevenlabs.TTS(
             voice=elevenlabs.Voice(
                 id="2OdNfs9Z4GCMvoFiCavC",
@@ -95,13 +114,18 @@ async def entrypoint(ctx: JobContext):
         sentence_tokenizer=tokenize.basic.SentenceTokenizer(),
     )
 
+    openai_tts = tts.StreamAdapter(
+        tts=openai.TTS(),
+        sentence_tokenizer=tokenize.basic.SentenceTokenizer(),
+    )
+
     latest_image: rtc.VideoFrame | None = None
 
     assistant = VoiceAssistant(
         vad=silero.VAD.load(),  # We'll use Silero's Voice Activity Detector (VAD)
         stt=deepgram.STT(language="ru"),  # We'll use Deepgram's Speech To Text (STT)
-        llm=gpt,
-        tts=openai_tts,  # We'll use OpenAI's Text To Speech (TTS)
+        llm=gpt_assistant3,
+        tts=elevenlabs_tts,
         fnc_ctx=AssistantFunction(),
         chat_ctx=chat_context,
     )
