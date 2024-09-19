@@ -1,6 +1,10 @@
 import asyncio
 from typing import Annotated
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from livekit import agents, rtc
 from livekit.agents import JobContext, WorkerOptions, cli, tokenize, tts
 from livekit.agents.llm import (
@@ -9,7 +13,7 @@ from livekit.agents.llm import (
     ChatMessage,
 )
 from livekit.agents.voice_assistant import VoiceAssistant
-from livekit.plugins import deepgram, openai, silero
+from livekit.plugins import deepgram, openai, silero, elevenlabs
 
 
 class AssistantFunction(agents.llm.FunctionContext):
@@ -60,19 +64,34 @@ async def entrypoint(ctx: JobContext):
             ChatMessage(
                 role="system",
                 content=(
-                    "Your name is Alloy. You are a funny, witty bot. Your interface with users will be voice and vision."
+                    "Your interface with users will be voice and vision."
                     "Respond with short and concise answers. Avoid using unpronouncable punctuation or emojis."
                 ),
             )
         ]
     )
 
-    gpt = openai.LLM(model="gpt-4o")
+    gpt = openai.beta.AssistantLLM(
+        assistant_opts=openai.beta.AssistantOptions(
+            load_options=openai.beta.AssistantLoadOptions(
+                assistant_id="asst_QXQEcSVw9HI41HWEVk1HH9Pi",
+                thread_id=None
+            )
+        ))
 
     # Since OpenAI does not support streaming TTS, we'll use it with a StreamAdapter
     # to make it compatible with the VoiceAssistant
     openai_tts = tts.StreamAdapter(
-        tts=openai.TTS(voice="alloy"),
+        tts=elevenlabs.TTS(
+            voice=elevenlabs.Voice(
+                id="2OdNfs9Z4GCMvoFiCavC",
+                name="Макс",
+                category="premade",
+                settings=elevenlabs.VoiceSettings(
+                    stability=0.7, similarity_boost=0.7, style=0.3, use_speaker_boost=True
+                )
+            )
+        ),
         sentence_tokenizer=tokenize.basic.SentenceTokenizer(),
     )
 
@@ -80,7 +99,7 @@ async def entrypoint(ctx: JobContext):
 
     assistant = VoiceAssistant(
         vad=silero.VAD.load(),  # We'll use Silero's Voice Activity Detector (VAD)
-        stt=deepgram.STT(),  # We'll use Deepgram's Speech To Text (STT)
+        stt=deepgram.STT(language="ru"),  # We'll use Deepgram's Speech To Text (STT)
         llm=gpt,
         tts=openai_tts,  # We'll use OpenAI's Text To Speech (TTS)
         fnc_ctx=AssistantFunction(),
